@@ -82,7 +82,7 @@ spec:
           subPath: nginx.conf
 
       - name: sensu-agent
-        image: sensu/sensu:6.7.2
+        image: sensu/sensu:6.12.0
         command: [
           "/opt/sensu/bin/sensu-agent", "start",
           "--detect-cloud-provider", "true",

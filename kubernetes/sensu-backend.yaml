@@ -101,7 +101,7 @@ spec:
           "--name", "$(ETCD_NAME)",
           "--listen-client-urls", "http://0.0.0.0:2379",
           "--election-timeout=50000",
-          "--advertise-client-urls", "http://$(ETCD_NAME):2379",
+          "--advertise-client-urls", "http://$(ETCD_NAME).sensu-etcd.$(KUBE_NAMESPACE).svc.cluster.local:2379",
         ]
         env:
         - name: KUBE_NAMESPACE
@@ -128,18 +128,14 @@ spec:
             memory: 4096M
             cpu: 2.0
         readinessProbe:
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          exec:
-            command:
-            - wget
-            - --no-check-certificate
-            - -q
-            - -O-
-            - http://127.0.0.1:2379/health
-
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 20
+          httpGet:
+            path: /health
+            port: 2379
       - name: sensu-agent
-        image: sensu/sensu:6.7.2
+        image: sensu/sensu:6.12.0
         command: [
           "/opt/sensu/bin/sensu-agent", "start",
           "--log-level", "warn",
@@ -207,11 +203,11 @@ spec:
           optional: true
       initContainers:
       - name: wait-for-etcd
-        image: tutum/dnsutils:latest
+        image: busybox:latest
         command: [
           "/bin/sh",
           "-c",
-          "export READY=1 && while [ $READY -gt 0 ]; do host ${TARGET_DNS}; READY=$?; sleep 2; done && sleep 10",
+          "until nslookup sensu-etcd-0.sensu-etcd.$(KUBE_NAMESPACE).svc.cluster.local; do echo waiting for sensu-etcd-0.sensu-etcd.$(KUBE_NAMESPACE).svc.cluster.local; sleep 2; done",
         ]
         env:
         - name: KUBE_NAMESPACE
@@ -224,7 +220,7 @@ spec:
         volumeMounts: []
       containers:
       - name: sensu-backend
-        image: sensu/sensu:6.7.2
+        image: sensu/sensu:6.12.0
         command: [
           "/opt/sensu/bin/sensu-backend", "start",
           "--log-level", "debug",
@@ -261,15 +257,11 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 20
-          exec:
-            command:
-            - wget
-            - -q
-            - -O-
-            - http://127.0.0.1:8080/health
-
+          httpGet:
+            path: /health
+            port: 8080
       - name: sensu-agent
-        image: sensu/sensu:6.7.2
+        image: sensu/sensu:6.12.0
         command: [
           "/opt/sensu/bin/sensu-agent", "start",
           "--detect-cloud-provider", "true",
@@ -333,11 +325,11 @@ spec:
       activeDeadlineSeconds: 60
       initContainers:
       - name: wait-for-etcd
-        image: tutum/dnsutils:latest
+        image: busybox:latest
         command: [
           "/bin/sh",
           "-c",
-          "export READY=1 && while [ $READY -gt 0 ]; do host ${TARGET_DNS}; READY=$?; sleep 2; done && sleep 10",
+          "until nslookup sensu-etcd-0.sensu-etcd.$(KUBE_NAMESPACE).svc.cluster.local; do echo waiting for sensu-etcd-0.sensu-etcd.$(KUBE_NAMESPACE).svc.cluster.local; sleep 2; done",
         ]
         env:
         - name: KUBE_NAMESPACE
@@ -350,7 +342,7 @@ spec:
         volumeMounts: []
       containers:
       - name: sensu-backend-init
-        image: sensu/sensu:6.7.2
+        image: sensu/sensu:6.12.0
         command: [
           "/opt/sensu/bin/sensu-backend", "init",
           "--wait",
